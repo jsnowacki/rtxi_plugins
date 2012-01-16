@@ -18,13 +18,13 @@
 
 #include <default_gui_model.h>
 
-class Neuron : public DefaultGUIModel
+class Cell : public DefaultGUIModel
 {
 
 public:
 
-    Neuron(void);
-    virtual ~Neuron(void);
+    Cell(void);
+    virtual ~Cell(void);
 
     void execute(void);
 
@@ -41,15 +41,21 @@ private:
     double period;
     int steps;
 
-    double V0;
-    double Cm;
-    double G_Na_max;
-    double E_Na;
-    double G_K_max;
-    double E_K;
-    double G_L;
-    double E_L;
-    double Iapp_offset;
-    double rate;
+    double pER;
+    double caER;
+    double gKCaMax;
+    double gCaL;
+    double nuER;
+    double nuMP;
+    double kmKCa;
+    double ksl;
+    double gKDR;
+    double tauSDR;
+    double gLeak;
+    double eLeak;
+    double f;
+    double eCa;
+    double eK;
 
+    double iAppOffset;
 };

@@ -22,69 +22,53 @@
 /*
  * Model Functions
  */
-
-static inline double alpha_m(double V) {
-    double x = -(V+40.0);
-    double y = 10.0;
-
-    if(fabs(x/y) < 1e-6)
-        return 0.1*y*(1-x/y/2.0);
-    else
-        return 0.1*x/(exp(x/y)-1.0);
+#define vml -26.7
+#define kml 11.5
+static inline double mlInf(double v) {
+    return 1/(1+exp(-(v-vml)/kml));
 }
 
-static inline double beta_m(double V) {
-    return 4.0*exp(-(V+65.0)/18.0);
+#define vNDR -16.0
+#define kNDR 10.0
+static inline double nDRInf(double v) {
+    return 1/(1+exp(-(v-vNDR)/kNDR));
 }
 
-static inline double m_inf(double V) {
-    return alpha_m(V)/(alpha_m(V)+beta_m(V));
+static inline double tauNDR(double v) {
+    return 0.0022+0.0029*exp(-v/14.3);
 }
 
-static inline double tau_m(double V) {
-    return 1.0/(alpha_m(V)+beta_m(V));
+#define vSDR1 -60.5
+#define kSDR1 6.8
+#define vSDR2 -17.8
+#define kSDR2 7.1
+static inline double sDRInf(double v) {
+    return 0.214+0.355/(1+exp((v-vSDR1)/kSDR1))+0.448/(1+exp((v-vSDR2)/kSDR2));
 }
 
-static inline double alpha_h(double V) {
-    return 0.07*exp(-(V+65.0)/20.0);
+static inline double sl(double c) {
+    return 1/(1+(ca/ksl));
 }
 
-static inline double beta_h(double V) {
-    return 1.0/(1.0+exp(-(V+35.0)/10.0));
+#define kMMP 0.08
+static inline double jEff(double c) {
+    return nuMP*c^2/(c^2+kMMP^2);
 }
 
-static inline double h_inf(double V) {
-    return alpha_h(V)/(alpha_h(V)+beta_h(V));
-}
+#define pi M_PI
+#define acell pi*dcell^2
+#define vcell pi/6000.0*dcell^3
+#define cm    acell/1e5
+#define alpha 1e5/(2*9.65*acell)
+#define beta  acell/(1000*vcell)
+#define betaer acell/(100*vcell)
 
-static inline double tau_h(double V) {
-    return 1.0/(alpha_h(V)+beta_h(V));
-}
-
-static inline double alpha_n(double V) {
-    double x = -(V+55.0);
-    double y = 10.0;
-
-    if(fabs(x/y) < 1e-6)
-        return 0.01*y*(1-x/y/2.0);
-    else
-        return 0.01*x/(exp(x/y)-1.0);
-}
-
-static inline double beta_n(double V) {
-    return 0.125*exp(-(V+65.0)/80.0);
-}
-
-static inline double n_inf(double V) {
-    return alpha_n(V)/(alpha_n(V)+beta_n(V));
-}
-
-static inline double tau_n(double V) {
-    return 1.0/(alpha_n(V)+beta_n(V));
-}
+/*
+ *  Plugin body
+ */
 
 extern "C" Plugin::Object *createRTXIPlugin(void) {
-    return new Neuron();
+    return new Cell();
 }
 
 static DefaultGUIModel::variable_t vars[] = {
@@ -99,42 +83,77 @@ static DefaultGUIModel::variable_t vars[] = {
         DefaultGUIModel::OUTPUT,
     },
     {
-        "V0",
-        "mV",
+        "pER",
+        "Unit",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "Cm",
-        "uF/cm^2",
+        "caER",
+        "[Ca2+]",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "G_Na_max",
+        "gKCaMax",
         "mS/cm^2",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "E_Na",
-        "mV",
-        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
-    },
-    {
-        "G_K_max",
+        "gCaL",
         "mS/cm^2",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "E_K",
-        "mV",
+        "nuER",
+        "Unit",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "G_L",
+        "nuMP",
+        "Unit",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "kmKCa",
+        "Unit",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "ksl",
+        "Unit",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "gKDR",
         "mS/cm^2",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
-        "E_L",
+        "tauSDR",
+        "ms",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "gLeak",
+        "mS/cm^2",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "eLeak",
+        "mV",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "f",
+        "Flux",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "eCa",
+        "mV",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
+        "eK",
         "mV",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
@@ -149,18 +168,18 @@ static DefaultGUIModel::variable_t vars[] = {
         DefaultGUIModel::PARAMETER | DefaultGUIModel::UINTEGER,
     },
     {
-        "m",
-        "Sodium Activation",
+        "c",
+        "Ca2+ concentration",
         DefaultGUIModel::STATE,
     },
     {
-        "h",
-        "Sodium Inactivation",
+        "nDR",
+        "Potassium activation",
         DefaultGUIModel::STATE,
     },
     {
-        "n",
-        "Potassium Activation",
+        "sDR",
+        "Potassium activation",
         DefaultGUIModel::STATE,
     },
 };
@@ -172,32 +191,39 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
  */
 
 #define V (y[0])
-#define m (y[1])
-#define h (y[2])
-#define n (y[3])
+#define c (y[1])
+#define nDR (y[2])
+#define sDR (y[3])
 #define dV (dydt[0])
-#define dm (dydt[1])
-#define dh (dydt[2])
-#define dn (dydt[3])
-#define G_Na (G_Na_max*m*m*m*h)
-#define G_K  (G_K_max*n*n*n*n)
-#define Iapp (input(0)*1e6+Iapp_offset)
+#define dc (dydt[1])
+#define dnDR (dydt[2])
+#define dsDR (dydt[3])
+#define Iapp (input(0)+iAppOffset)
 
 Neuron::Neuron(void)
-    : DefaultGUIModel("Neuron",::vars,::num_vars) {
+    : DefaultGUIModel("Cell",::vars,::num_vars) {
     createGUI(vars, num_vars);
     /*
      * Initialize Parameters
      */
-    V0 = -65.0;
-    Cm = 1.0;
-    G_Na_max = 120.0;
-    E_Na = 50.0;
-    G_K_max = 36.0;
-    E_K = -77.0;
-    G_L = 0.3;
-    E_L = -54.4;
-    Iapp_offset = 0.0;
+    pER = 0.0003;
+    caER = 500.0;
+    gKCaMax 3.0;
+    gCaL = 2.4;
+    nuER = 1.2;
+    nuMP = 3.6;
+    kmKCa = 1.25;
+    ksl = 0.6;
+    gKDR = 2.85;
+    tauSDR = 0.55;
+    gLeak = 0.12;
+    eLeak = -20.0;
+    f = 0.01;
+    eCa = 60.0;
+    eK = -60.0;
+    dCell = 15.0;
+    //
+    iAppOffset = 0.0;
     rate = 40000;
 
     /*
@@ -230,6 +256,7 @@ Neuron::Neuron(void)
     setParameter("E_L",E_L);
     setParameter("Iapp_offset",Iapp_offset);
     setParameter("rate",rate);
+
     refresh();
 }
 
