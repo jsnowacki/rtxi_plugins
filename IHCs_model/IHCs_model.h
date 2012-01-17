@@ -41,9 +41,11 @@ private:
     double period;
     int steps;
 
+    double v0;
+    double c0;
     double pER;
-    double caER;
-    double gKCaMax;
+    double cER;
+    double gKCa;
     double gCaL;
     double nuER;
     double nuMP;
@@ -58,4 +60,6 @@ private:
     double eK;
 
     double iAppOffset;
+    double rate;
+
 };

@@ -4,7 +4,7 @@ HEADERS = IHCs_model.h
 
 SOURCES = IHCs_model.cpp
 
-LIBS =
+LIBS = 
 
 ### Do not edit below this line ###
 

@@ -1,0 +1,91 @@
+# 22/06/10 Model of Bursting in IHC
+# NB: Times are in s
+# Put in calcium dependent inactivation of the calcium current
+# and voltage dependent inactivation of the DR current
+#
+#
+# Declare the parameters
+param  per=0.0003, caer=500.0, gkcamax=3., gcal=2.4
+param  nu_er=1.2, nu_mp=3.6
+param   kmkca=1.25, ksl=0.6
+param  gkdr=2.85, tausdr=0.55
+param gleak=0.12, eleak=-20.
+param  f=0.01, eca=60., ek=-60.0
+par dcell=15.0
+param  vml=-26.7,   kml=11.5
+param  vndr=-16.,    kndr=10.
+param  vsdr1=-60.5,    ksdr1=6.8
+param  vsdr2=-17.8,    ksdr2=7.1
+
+param  km_mp=0.08
+param  tap=500., tauap=100.
+
+param  ph=0.0,      s0=0.0,    wid=0.25
+
+# for apamin application
+gkca = if(t>tap)then( gkcamax*exp(-(t-tap)/tauap) )else(gkcamax)
+
+# for resetting:
+param iappbar=4.8, treset=2000.0, width=0.05
+#
+iapp = iappbar*(heav(t - treset) - heav(t - treset - width))
+#
+#
+acell = pi*dcell^2
+vcell = pi/6000.0*dcell^3
+cm    = acell/1e5
+alpha = 1e5/(2*9.65*acell)
+beta  = acell/(1000*vcell)
+betaer = acell/(100*vcell)
+#
+# Define some functions
+mlinf(v)  = 1/(1+exp(-(v-vml)/kml))
+ndrinf(v) = 1/(1+exp(-(v-vndr)/kndr))
+taundr(v) = 0.0022+0.0029*exp(-v/14.3)
+sdrinf(v) = 0.214+0.355/(1+exp((v-vsdr1)/ksdr1))+0.448/(1+exp((v-vsdr2)/ksdr2))
+sl(ca) = 1/(1+(ca/ksl))
+j_eff(ca) = nu_mp*ca^2/(ca^2+km_mp^2)
+#
+# Define the right-hand sides
+dv/dt   = 1/cm*(iapp-i_cal-i_kdr-i_kca-i_leak)
+dca/dt  = f*beta*(-alpha*i_cal-j_eff(ca) - (nu_er/(f*beta))*ca + (per/(f*beta))*(caer-ca))
+#dcaer/dt = f*betaer*(nu_er*ca-per*(caer-ca))
+dndr/dt = (ndrinf(v)-ndr)/taundr(v)
+dsdr/dt = (sdrinf(v)-sdr)/tausdr
+#
+# Define the fixed variables
+i_cal  = gcal*sl(ca)*(mlinf(v))^2*(v-eca)
+i_kca  = gkca*(ca^4)/((ca^4)+(kmkca^4))*(v-ek)
+i_kdr  = gkdr*ndr*sdr*(v-ek)
+g_kca = gkca*(ca^4)/((ca^4)+(kmkca^4))
+i_leak = gleak*(v-eleak)
+
+i_all  = i_cal+i_kdr+i_kca
+#
+# Now we keep the fixed variables
+#
+aux ica = i_cal
+aux ikdr = i_kdr
+aux ikca = i_kca
+aux il = i_leak
+aux pump= j_eff(ca)
+aux gkc=g_kca
+aux ia = iapp
+#
+# Initial conditions
+init  v=-52.24068431211985
+init  ca=0.335219056735183  
+#init  caer=500.0
+init  ndr=0.1853809302982732
+init  sdr=0.646638497731893
+#
+#
+@ meth=cvode, toler=1.0e-10, atoler=1.0e-10, dt=0.001, total=10
+@ maxstore=10000000, bounds=10000000, noutput=10
+@ xp=t, yp=v, xlo=0, xhi=10, ylo=-60, yhi=0
+
+@ ntst=50.,nmax=2000000.,npr=2000000.,dsmin=0.000001,dsmax=0.1,ds=0.01,parmin=-1,parmax=1.
+@ epsl=1e-08, epsu=1e-08, epss=1e-06, normmax=1000000
+@ autoxmin=1E-6,autoxmax=1E-3,autoymin=-80.,autoymax=0.
+
+done
