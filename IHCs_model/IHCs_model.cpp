@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 University of Bristol, UK
+ * Copyright (C) 2012 University of Bristol, UK
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License as
@@ -18,23 +18,24 @@
 
 #include <math.h>
 #include <IHCs_model.h>
+#include <iostream>
 
 /*
  * Model Functions
  */
 #define vml -26.7
 #define kml 11.5
-static inline double mlInf(double v) {
+double mlInf(double v) {
     return 1/(1+exp(-(v-vml)/kml));
 }
 
 #define vNDR -16.0
 #define kNDR 10.0
-static inline double nDRInf(double v) {
+double nDRInf(double v) {
     return 1/(1+exp(-(v-vNDR)/kNDR));
 }
 
-static inline double tauNDR(double v) {
+double tauNDR(double v) {
     return 0.0022+0.0029*exp(-v/14.3);
 }
 
@@ -42,27 +43,28 @@ static inline double tauNDR(double v) {
 #define kSDR1 6.8
 #define vSDR2 -17.8
 #define kSDR2 7.1
-static inline double sDRInf(double v) {
+double sDRInf(double v) {
     return 0.214+0.355/(1+exp((v-vSDR1)/kSDR1))+0.448/(1+exp((v-vSDR2)/kSDR2));
 }
 
-static inline double sl(double c, double ksl) {
+double sl(double c, double ksl) {
     return 1/(1+(c/ksl));
 }
 
 #define kMMP 0.08
-static inline double jEff(double c, double nuMP) {
+double jEff(double c, double nuMP) {
     return nuMP*c*c/(c*c+kMMP*kMMP);
 }
 
+// When defining some expression always use brackets.
 #define pi M_PI
 #define dcell 15.0
-#define acell pi*dcell*dcell
-#define vcell pi/6000.0*dcell*dcell*dcell
-#define cm    acell/1e5
-#define alpha 1e5/(2*9.65*acell)
-#define beta  acell/(1000*vcell)
-#define betaer acell/(100*vcell)
+#define acell (pi*dcell*dcell)
+#define vcell (pi/6000.0*dcell*dcell*dcell)
+#define cm    (acell/1e5)
+#define alpha (1e5/(2*9.65*acell))
+#define beta  (acell/(1000*vcell))
+#define betaer (acell/(100*vcell))
 /*
  *  Plugin body
  */
@@ -235,7 +237,7 @@ Cell::Cell(void)
     eK = -60.0;
     //
     iAppOffset = 0.0;
-    rate = 1e5;    
+    rate = 1e4;    
 
     /*
      * Initialize Variables
@@ -296,6 +298,11 @@ void Cell::solve(double dt, double *y) {
         y[i] += dt*dydt[i];
 }
 
+// Ionic currents and conductances
+//#define iCaL  gCaL*sl(c,ksl)*(mlInf(v))*(mlInf(v))*(v-eCa)
+//#define iKCa  gKCa*(c*c*c*c)/((c*c*c*c)+(kmKCa*kmKCa*kmKCa*kmKCa))*(v-eK)
+//#define iKDR  gKDR*nDR*sDR*(v-eK)
+//#define iLeak gLeak*(v-eLeak)
 void Cell::derivs(double *y,double *dydt) {
     // Ionic currents and conductances
     double iCaL, iKCa, iKDR, iLeak;
@@ -304,7 +311,7 @@ void Cell::derivs(double *y,double *dydt) {
     iKDR  = gKDR*nDR*sDR*(v-eK);
     iLeak = gLeak*(v-eLeak);
     // RHS
-    dv = 1/cm*(iApp-iCaL-iKDR-iKCa-iLeak);
+    dv = (iApp-iCaL-iKDR-iKCa-iLeak)/cm;
     dc = f*beta*(-alpha*iCaL-jEff(c,nuMP) - (nuER/(f*beta))*c + (pER/(f*beta))*(cER-c));
     dnDR = (nDRInf(v)-nDR)/tauNDR(v);
     dsDR = (sDRInf(v)-sDR)/tauSDR;

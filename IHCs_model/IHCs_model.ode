@@ -71,6 +71,7 @@ aux il = i_leak
 aux pump= j_eff(ca)
 aux gkc=g_kca
 aux ia = iapp
+aux dv = 1/cm*(iapp-i_cal-i_kdr-i_kca-i_leak)
 #
 # Initial conditions
 init  v=-52.24068431211985
