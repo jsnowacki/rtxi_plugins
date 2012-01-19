@@ -1,5 +1,7 @@
-MODULES=IHCs_model
+# Here list all the plugin subfolders separated by a space
+MODULES=IHCs_model 
 
+# This construct allows a usage of make with multiple job option (-j#)
 .PHONY: $(MODULES)
 all: $(MODULES)
 
@@ -9,3 +11,7 @@ $(MODULES):
 .PHONY: clean 
 clean:
 	-for d in $(MODULES); do $(MAKE) -C$$d clean; done
+
+.PHONY: install 
+install:
+	-for d in $(MODULES); do $(MAKE) -C$$d install; done
