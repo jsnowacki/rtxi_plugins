@@ -1,5 +1,5 @@
 # Here list all the plugin subfolders separated by a space
-MODULES=IHCs_model 
+MODULES=IHCs_model IHCs_model_ICs 
 
 # This construct allows a usage of make with multiple job option (-j#)
 .PHONY: $(MODULES)
