@@ -170,6 +170,11 @@ static DefaultGUIModel::variable_t vars[] = {
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
+        "rLeakMC",
+        "GOhms",
+        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
+    },
+    {
         "iAppOffset",
         "uA/cm^2 - Current added to the input.",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
@@ -202,7 +207,7 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
  * Macros for making the code below a little bit cleaner.
  */
 
-#define v (input(0))
+#define v (input(0)*1e3)
 #define c (y[0])
 #define nDR (y[1])
 #define sDR (y[2])
@@ -235,6 +240,7 @@ Cell::Cell(void)
     f = 0.01;
     eCa = 60.0;
     eK = -60.0;
+    rLeakMC = 0.5181;
     //
     iAppOffset = 0.0;
     rate = 1e4;    
@@ -275,6 +281,7 @@ Cell::Cell(void)
     setParameter("f", f);
     setParameter("eCa", eCa);
     setParameter("eK", eK);
+    setParameter("rLeakMC", rLeakMC);
     //
     setParameter("iAppOffset", iAppOffset);
     setParameter("rate", rate);
@@ -320,7 +327,7 @@ void Cell::execute(void) {
     for(int i = 0;i < steps;++i)
         solve(period/steps,y);
 
-    output(0) = iCaL+iKDR+iKCa+iLeak; 
+    output(0) = -(iCaL+iKDR+iKCa+iLeak) +1/rLeakMC*v; 
 }
 
 void Cell::update(DefaultGUIModel::update_flags_t flag) {
@@ -342,6 +349,7 @@ void Cell::update(DefaultGUIModel::update_flags_t flag) {
         f = getParameter("f").toDouble();
         eCa = getParameter("eCa").toDouble();
         eK = getParameter("eK").toDouble();
+        rLeakMC = getParameter("rLeakMC").toDouble();
         //
         iAppOffset = getParameter("iAppOffset").toDouble();
         rate = getParameter("rate").toDouble();

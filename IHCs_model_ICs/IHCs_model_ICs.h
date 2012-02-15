@@ -58,6 +58,7 @@ private:
     double f;
     double eCa;
     double eK;
+    double rLeakMC;
 
     double iAppOffset;
     double rate;
