@@ -25,17 +25,17 @@
  */
 #define vml -26.7
 #define kml 11.5
-double mlInf(double v) {
+static inline double mlInf(double v) {
     return 1/(1+exp(-(v-vml)/kml));
 }
 
 #define vNDR -16.0
 #define kNDR 10.0
-double nDRInf(double v) {
+static inline double nDRInf(double v) {
     return 1/(1+exp(-(v-vNDR)/kNDR));
 }
 
-double tauNDR(double v) {
+static inline double tauNDR(double v) {
     return 0.0022+0.0029*exp(-v/14.3);
 }
 
@@ -43,16 +43,16 @@ double tauNDR(double v) {
 #define kSDR1 6.8
 #define vSDR2 -17.8
 #define kSDR2 7.1
-double sDRInf(double v) {
+static inline double sDRInf(double v) {
     return 0.214+0.355/(1+exp((v-vSDR1)/kSDR1))+0.448/(1+exp((v-vSDR2)/kSDR2));
 }
 
-double sl(double c, double ksl) {
+static inline double sl(double c, double ksl) {
     return 1/(1+(c/ksl));
 }
 
 #define kMMP 0.08
-double jEff(double c, double nuMP) {
+static inline double jEff(double c, double nuMP) {
     return nuMP*c*c/(c*c+kMMP*kMMP);
 }
 
@@ -299,17 +299,11 @@ void Cell::solve(double dt, double *y) {
 }
 
 // Ionic currents and conductances
-//#define iCaL  gCaL*sl(c,ksl)*(mlInf(v))*(mlInf(v))*(v-eCa)
-//#define iKCa  gKCa*(c*c*c*c)/((c*c*c*c)+(kmKCa*kmKCa*kmKCa*kmKCa))*(v-eK)
-//#define iKDR  gKDR*nDR*sDR*(v-eK)
-//#define iLeak gLeak*(v-eLeak)
+#define iCaL  (gCaL*sl(c,ksl)*(mlInf(v))*(mlInf(v))*(v-eCa))
+#define iKCa  (gKCa*(c*c*c*c)/((c*c*c*c)+(kmKCa*kmKCa*kmKCa*kmKCa))*(v-eK))
+#define iKDR  (gKDR*nDR*sDR*(v-eK))
+#define iLeak (gLeak*(v-eLeak))
 void Cell::derivs(double *y,double *dydt) {
-    // Ionic currents and conductances
-    double iCaL, iKCa, iKDR, iLeak;
-    iCaL  = gCaL*sl(c,ksl)*(mlInf(v))*(mlInf(v))*(v-eCa);
-    iKCa  = gKCa*(c*c*c*c)/((c*c*c*c)+(kmKCa*kmKCa*kmKCa*kmKCa))*(v-eK);
-    iKDR  = gKDR*nDR*sDR*(v-eK);
-    iLeak = gLeak*(v-eLeak);
     // RHS
     dv = (iApp-iCaL-iKDR-iKCa-iLeak)/cm;
     dc = f*beta*(-alpha*iCaL-jEff(c,nuMP) - (nuER/(f*beta))*c + (pER/(f*beta))*(cER-c));
