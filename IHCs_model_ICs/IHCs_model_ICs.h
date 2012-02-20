@@ -18,13 +18,15 @@
 
 #include <default_gui_model.h>
 
-class Cell : public DefaultGUIModel
+#define MODEL_DIM 3
+
+class Conductance : public DefaultGUIModel
 {
 
 public:
 
-    Cell(void);
-    virtual ~Cell(void);
+    Conductance(void);
+    virtual ~Conductance(void);
 
     void execute(void);
 
@@ -37,11 +39,10 @@ private:
     void derivs(double *,double *);
     void solve(double,double *);
 
-    double y[3];
+    double y[MODEL_DIM];
     double period;
     int steps;
 
-    double v0;
     double c0;
     double pER;
     double cER;

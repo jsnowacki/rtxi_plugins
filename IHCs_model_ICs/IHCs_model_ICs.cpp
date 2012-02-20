@@ -70,7 +70,7 @@ static inline double jEff(double c, double nuMP) {
  */
 
 extern "C" Plugin::Object *createRTXIPlugin(void) {
-    return new Cell();
+    return new Conductance();
 }
 
 static DefaultGUIModel::variable_t vars[] = {
@@ -83,11 +83,6 @@ static DefaultGUIModel::variable_t vars[] = {
         "v",
         "V",
         DefaultGUIModel::INPUT,
-    },
-    {
-        "v0",
-        "mV",
-        DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
         "c0",
@@ -106,12 +101,12 @@ static DefaultGUIModel::variable_t vars[] = {
     },
     {
         "gKCa",
-        "mS/cm^2",
+        "nS",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
         "gCaL",
-        "mS/cm^2",
+        "nS",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
@@ -136,7 +131,7 @@ static DefaultGUIModel::variable_t vars[] = {
     },
     {
         "gKDR",
-        "mS/cm^2",
+        "nS",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
@@ -146,7 +141,7 @@ static DefaultGUIModel::variable_t vars[] = {
     },
     {
         "gLeak",
-        "mS/cm^2",    
+        "nS",    
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
@@ -176,7 +171,7 @@ static DefaultGUIModel::variable_t vars[] = {
     },
     {
         "iAppOffset",
-        "uA/cm^2 - Current added to the input.",
+        "pA - Current added to the input.",
         DefaultGUIModel::PARAMETER | DefaultGUIModel::DOUBLE,
     },
     {
@@ -211,19 +206,16 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
 #define c (y[0])
 #define nDR (y[1])
 #define sDR (y[2])
-//#define dv (dydt[0])
 #define dc (dydt[0])
 #define dnDR (dydt[1])
 #define dsDR (dydt[2])
-//#define iApp (input(0)*1e6+iAppOffset)
 
-Cell::Cell(void)
-    : DefaultGUIModel("IHCs model_ICs",::vars,::num_vars) {
+Conductance::Conductance(void)
+    : DefaultGUIModel("IHCs model ICs",::vars,::num_vars) {
     createGUI(vars, num_vars);
     /*
      * Initialize Parameters
      */
-    v0 = -52.25;
     c0 = 0.335;
     pER = 0.0003;
     cER = 500.0;
@@ -264,7 +256,6 @@ Cell::Cell(void)
     /*
      * Initialize GUI
      */
-    setParameter("v0", v0);
     setParameter("c0", c0);
     setParameter("pER", pER);
     setParameter("cER", cER);
@@ -289,18 +280,18 @@ Cell::Cell(void)
     refresh();
 }
 
-Cell::~Cell(void) {}
+Conductance::~Conductance(void) {}
 
 /*
  * Simple Euler solver.
  */
 
-void Cell::solve(double dt, double *y) {
-    double dydt[3];
+void Conductance::solve(double dt, double *y) {
+    double dydt[MODEL_DIM];
 
     derivs(y,dydt);
 
-    for(size_t i = 0;i < 3;++i)    
+    for(size_t i = 0;i < MODEL_DIM;++i)    
         y[i] += dt*dydt[i];
 }
 
@@ -309,15 +300,14 @@ void Cell::solve(double dt, double *y) {
 #define iKCa  (gKCa*(c*c*c*c)/((c*c*c*c)+(kmKCa*kmKCa*kmKCa*kmKCa))*(v-eK))
 #define iKDR  (gKDR*nDR*sDR*(v-eK))
 #define iLeak (gLeak*(v-eLeak))
-void Cell::derivs(double *y,double *dydt) {
+void Conductance::derivs(double *y,double *dydt) {
     // RHS
-    //dv = (iApp-iCaL-iKDR-iKCa-iLeak)/cm;
     dc = f*beta*(-alpha*iCaL-jEff(c,nuMP) - (nuER/(f*beta))*c + (pER/(f*beta))*(cER-c));
     dnDR = (nDRInf(v)-nDR)/tauNDR(v);
     dsDR = (sDRInf(v)-sDR)/tauSDR;
 }
 
-void Cell::execute(void) {
+void Conductance::execute(void) {
 
     /*
      * Because the real-time thread may run much slower than we want to
@@ -327,39 +317,48 @@ void Cell::execute(void) {
     for(int i = 0;i < steps;++i)
         solve(period/steps,y);
 
-    output(0) = -(iCaL+iKDR+iKCa+iLeak) +1/rLeakMC*v; 
+    // Convert pA to A
+    output(0) = (iAppOffset-(iCaL+iKDR+iKCa+iLeak) + 1/rLeakMC*v)*1e-12;  
 }
 
-void Cell::update(DefaultGUIModel::update_flags_t flag) {
-    if(flag == MODIFY) {
-        v0 = getParameter("v0").toDouble();
-        c0 = getParameter("c0").toDouble();
-        pER = getParameter("pER").toDouble();
-        cER = getParameter("cER").toDouble();
-        gKCa = getParameter("gKCa").toDouble();
-        gCaL = getParameter("gCaL").toDouble();
-        nuER = getParameter("nuER").toDouble();
-        nuMP = getParameter("nuMP").toDouble();
-        kmKCa = getParameter("kmKCa").toDouble();
-        ksl = getParameter("ksl").toDouble();
-        gKDR = getParameter("gKDR").toDouble();
-        tauSDR = getParameter("tauSDR").toDouble();
-        gLeak = getParameter("gLeak").toDouble();
-        eLeak = getParameter("eLeak").toDouble();
-        f = getParameter("f").toDouble();
-        eCa = getParameter("eCa").toDouble();
-        eK = getParameter("eK").toDouble();
-        rLeakMC = getParameter("rLeakMC").toDouble();
-        //
-        iAppOffset = getParameter("iAppOffset").toDouble();
-        rate = getParameter("rate").toDouble();
-        steps = static_cast<int>(ceil(period*rate));
+void Conductance::update(DefaultGUIModel::update_flags_t flag) {
+    switch(flag) {
+        case MODIFY:
+            c0 = getParameter("c0").toDouble();
+            pER = getParameter("pER").toDouble();
+            cER = getParameter("cER").toDouble();
+            gKCa = getParameter("gKCa").toDouble();
+            gCaL = getParameter("gCaL").toDouble();
+            nuER = getParameter("nuER").toDouble();
+            nuMP = getParameter("nuMP").toDouble();
+            kmKCa = getParameter("kmKCa").toDouble();
+            ksl = getParameter("ksl").toDouble();
+            gKDR = getParameter("gKDR").toDouble();
+            tauSDR = getParameter("tauSDR").toDouble();
+            gLeak = getParameter("gLeak").toDouble();
+            eLeak = getParameter("eLeak").toDouble();
+            f = getParameter("f").toDouble();
+            eCa = getParameter("eCa").toDouble();
+            eK = getParameter("eK").toDouble();
+            rLeakMC = getParameter("rLeakMC").toDouble();
+            //
+            iAppOffset = getParameter("iAppOffset").toDouble();
+            rate = getParameter("rate").toDouble();
+            steps = static_cast<int>(ceil(period*rate));
 
-        c = c0;
-        nDR = nDRInf(v);
-        sDR = sDRInf(v);
-    } else if(flag == PERIOD) {
-        period = RT::System::getInstance()->getPeriod()*1e-9; // s
-        steps = static_cast<int>(ceil(period*rate));
+            c = c0;
+            nDR = nDRInf(v);
+            sDR = sDRInf(v);
+        break;
+        case PERIOD:
+            period = RT::System::getInstance()->getPeriod()*1e-9; // s
+            steps = static_cast<int>(ceil(period*rate));
+        break;
+        case PAUSE:
+            output(0) = 0.0;
+        break;
+        default:
+        // Something unexpected happened
+        break;
     }
 }
