@@ -171,7 +171,7 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
  * Macros for making the code below a little bit cleaner.
  */
 
-#define V (input(0)/1e3) // mV
+#define Vm (input(0)*1e3) // mV
 #define m (y[0])
 #define h (y[1])
 #define n (y[2])
@@ -182,12 +182,12 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
 #define G_K  (G_K_max*n*n*n*n)
 
 Conductance::Conductance(void)
-    : DefaultGUIModel("Conductance",::vars,::num_vars) {
+    : DefaultGUIModel("HH neuron ICs",::vars,::num_vars) {
     createGUI(vars, num_vars);
     /*
      * Initialize Parameters
      */
-    Cm = 1.0;
+    Cm = 22.0;
     G_Na_max = 1.0;
     E_Na = 50.0;
     G_K_max = 0.4;
@@ -201,9 +201,9 @@ Conductance::Conductance(void)
     /*
      * Initialize Variables
      */
-    m = m_inf(V);
-    h = h_inf(V);
-    n = n_inf(V);
+    m = m_inf(Vm);
+    h = h_inf(Vm);
+    n = n_inf(Vm);
     period = RT::System::getInstance()->getPeriod()*1e-9;
     steps = static_cast<int>(ceil(period*rate));
 
@@ -246,12 +246,12 @@ void Conductance::solve(double dt, double *y) {
 }
 
 void Conductance::derivs(double *y,double *dydt) {
-    dm = (m_inf(V)-m)/tau_m(V);
-    dh = (h_inf(V)-h)/tau_h(V);
-    dn = (n_inf(V)-n)/tau_n(V);
+    dm = (m_inf(Vm)-m)/tau_m(Vm);
+    dh = (h_inf(Vm)-h)/tau_h(Vm);
+    dn = (n_inf(Vm)-n)/tau_n(Vm);
 }
 
-#define I_ionic (G_Na*(V-E_Na)+G_K*(V-E_K)+G_L*(V-E_L))
+#define I_ionic (G_Na*(Vm-E_Na)+G_K*(Vm-E_K)+G_L*(Vm-E_L))
 void Conductance::execute(void) {
 
     /*
@@ -262,8 +262,8 @@ void Conductance::execute(void) {
     for(int i = 0;i < steps;++i)
         solve(period/steps,y);
 
-    // Membrane capacitance Cm is added to enable the use of nS/pF; default 1 pF   
-    output(0) = (Iapp_offset - I_ionic*Cm + V/R_L_MC)*1e-12; //convert from pA to A
+    // Membrane capacitance Cm is added to enable the use of nS/pF
+    output(0) = (Iapp_offset - I_ionic*Cm + Vm/R_L_MC)*1e-12; //convert from pA to A
 }
 
 void Conductance::update(DefaultGUIModel::update_flags_t flag) {
@@ -281,9 +281,9 @@ void Conductance::update(DefaultGUIModel::update_flags_t flag) {
             rate = getParameter("rate").toDouble();
             steps = static_cast<int>(ceil(period*rate));
 
-            m = m_inf(V);
-            h = h_inf(V);
-            n = n_inf(V);
+            m = m_inf(Vm);
+            h = h_inf(Vm);
+            n = n_inf(Vm);
         break;
         case PERIOD:
             period = RT::System::getInstance()->getPeriod()*1e-9; // ms
