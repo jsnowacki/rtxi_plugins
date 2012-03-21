@@ -16,9 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <math.h>
+// All includes are in the below header
 #include <IHCs_model_ICs_cont.h>
-#include <iostream>
 
 /*
  * Model Functions
@@ -213,6 +212,23 @@ static size_t num_vars = sizeof(vars)/sizeof(DefaultGUIModel::variable_t);
 #define dnDR (dydt[1])
 #define dsDR (dydt[2])
 
+// Our non-RT pthread function, i.e., what it does
+// Function can be called anything, we call it change_parameter
+static void *change_parameter(void *arg)
+{
+    double *par = (double *)arg;
+    long long i = 0;
+
+    while(1) // Infinite loop
+    {
+        *par = 3.0*sin(pi*i/10); // Some sin value
+        i++;
+        usleep(1e5); // sleep 100 ms
+    }
+
+    return 0;
+}
+
 Conductance::Conductance(void)
     : DefaultGUIModel("IHCs model ICs",::vars,::num_vars) {
     createGUI(vars, num_vars);
@@ -281,9 +297,17 @@ Conductance::Conductance(void)
     setParameter("rate", rate);
 
     refresh();
+
+    // Start our thread
+    int retval = pthread_create(&thread,NULL,&::change_parameter,&gKCa);
+    if(retval)
+        ERROR_MSG("RT::OS::createTask : pthread_create failed\n");
 }
 
-Conductance::~Conductance(void) {}
+Conductance::~Conductance(void) 
+{
+    pthread_join(thread, 0);
+}
 
 /*
  * Simple Euler solver.

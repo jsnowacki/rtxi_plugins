@@ -17,6 +17,11 @@
  */
 
 #include <default_gui_model.h>
+#include <pthread.h>
+#include <math.h>
+#include <time.h>
+#include <unistd.h>
+
 
 #define MODEL_DIM 3
 
@@ -63,5 +68,8 @@ private:
 
     double iAppOffset;
     double rate;
+
+    // Our non-RT pthread 
+    pthread_t thread;
 
 };
